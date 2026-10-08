@@ -21,7 +21,7 @@
   <!-- GİRİŞ -->
   <section class="view auth" id="v-auth" hidden>
     <div><div class="eyebrow">Hesap</div><h1>Garajına gir</h1></div>
-    <p class="muted">Aracını tara, yapay zekâ tanısın, fotoğraflarından 3D modeli üretilsin.</p>
+    <p class="muted">Aracını tara, yapay zekâ tanısın, fotoğraflarından çizgi film tarzı çizimi üretilsin.</p>
     <form id="authForm" class="view">
       <div class="field"><label for="a-email">E-posta</label><input type="email" id="a-email" autocomplete="email" required></div>
       <div class="field"><label for="a-pass">Şifre (en az 6 karakter)</label><input type="password" id="a-pass" autocomplete="current-password" minlength="6" required></div>
@@ -34,7 +34,7 @@
   <section class="view" id="v-garage" hidden>
     <div class="row"><div class="grow"><div class="eyebrow">Garajım</div><h1 id="gTitle">Araçların</h1></div>
       <button class="primary" data-go="scan">Yeni Araç Ekle</button></div>
-    <p class="muted" id="gEmpty" hidden>Garajın boş. Aracının fotoğraflarını çek, yapay zekâ markasını ve modelini tahmin etsin, sen onayla. Onayladığın aracın 3D modeli fotoğraflarından üretilir.</p>
+    <p class="muted" id="gEmpty" hidden>Garajın boş. Aracının fotoğraflarını çek, yapay zekâ markasını ve modelini tahmin etsin, sen onayla. Onayladığın aracın çizgi film tarzı çizimleri fotoğraflarından üretilir.</p>
     <div class="cards" id="gCards"></div>
   </section>
 
@@ -85,7 +85,7 @@
     </div>
     <div class="field" data-f="headlights"><label for="f-headlights">Far tasarımı</label><input type="text" id="f-headlights" maxlength="160"></div>
     <div class="field" data-f="distinctive"><label for="f-distinctive">Ayırt edici özellikler</label><textarea id="f-distinctive" maxlength="400"></textarea></div>
-    <p class="small muted">Bu işlem görsel eşleştirmedir. Aracın sana ait olduğunu doğrulamaz. Onaylamadığın sürece garajına hiçbir şey eklenmez. Onayladığında fotoğraflarından 3D model üretimi başlar.</p>
+    <p class="small muted">Bu işlem görsel eşleştirmedir. Aracın sana ait olduğunu doğrulamaz. Onaylamadığın sürece garajına hiçbir şey eklenmez. Onayladığında fotoğraflarından çizim üretimi başlar.</p>
     <div class="row"><button class="ghost" data-go="scan">Geri</button><button class="primary grow" id="btnConfirm">Onayla ve garaja ekle</button></div>
   </section>
 

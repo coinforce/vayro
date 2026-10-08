@@ -1,20 +1,24 @@
 // Sunucu işlevlerini sahte servis yanıtlarıyla çalıştırır. Gerçek ağ çağrısı yapılmaz.
 process.env.SUPABASE_URL = "https://sb.test"; process.env.SUPABASE_ANON_KEY = "anon"; process.env.SUPABASE_SERVICE_ROLE_KEY = "srk";
-process.env.ANTHROPIC_API_KEY = "ak"; process.env.MESHY_API_KEY = "mk";
+process.env.ANTHROPIC_API_KEY = "ak"; process.env.MESHY_API_KEY = "mk"; process.env.MODEL_MODE = "3d"; process.env.MODEL_DAILY_LIMIT = "3";
 const assert = require("assert");
 const U = "11111111-1111-4111-8111-111111111111", C = "22222222-2222-4222-8222-222222222222";
-let car, calls, meshyTask, recent;
+let car, calls, meshyTask, recent; let imgN = 0; const imgTasks = {}, imgState = {};
 const J = (o, status = 200) => ({ ok: status < 300, status, json: async () => o, text: async () => JSON.stringify(o), arrayBuffer: async () => new ArrayBuffer(8) });
 global.fetch = async (url, opt = {}) => {
   calls.push((opt.method || "GET") + " " + url);
   if (url.includes("/auth/v1/user")) return opt.headers.Authorization === "Bearer good" ? J({ id: U }) : J({}, 401);
   if (url.includes("/object/sign/")) { assert(url.includes(U + "/")); return J({ signedURL: "/object/sign/x?token=t" }); }
   if (url.includes("/rest/v1/cars") && (opt.method || "GET") === "GET") return J(url.includes("model_requested_at") ? recent : url.includes("owner_id=eq." + U) ? [car] : []);
-  if (url.includes("/rest/v1/cars") && opt.method === "PATCH") { Object.assign(car, JSON.parse(opt.body)); return J([car]); }
+  if (url.includes("/rest/v1/cars") && opt.method === "PATCH" && !url.includes("model_status=eq.queued")) { Object.assign(car, JSON.parse(opt.body)); return J([car]); }
   if (url.includes("/storage/v1/object/upload/sign/car-models/")) return J({ url: "/object/upload/sign/car-models/x?token=tok1" });
   if (url.includes("/storage/v1/object/car-models/")) return J({});
   if (url === "https://api.anthropic.com/v1/messages") { const b = JSON.parse(opt.body); assert.equal(b.messages[0].content.filter((c) => c.type === "image").length, 2);
     return J({ content: [{ type: "text", text: 'İşte: {"is_vehicle":true,"brand":{"value":"Fiat","confidence":0.9}}' }] }); }
+  if (url === "https://api.meshy.ai/openapi/v1/image-to-image") { const b = JSON.parse(opt.body); assert(b.remove_background && b.reference_image_urls.length >= 1 && b.reference_image_urls.length <= 5);
+    assert(/no people/.test(b.prompt) && /Fiat/.test(b.prompt)); const id = "img" + (++imgN); imgTasks[id] = b; return J({ result: id }); }
+  if (url.startsWith("https://api.meshy.ai/openapi/v1/image-to-image/")) { const id = url.split("/").pop(); return J(imgState[id] || { status: "IN_PROGRESS" }); }
+  if (url.includes("/rest/v1/cars") && opt.method === "PATCH" && url.includes("model_status=eq.queued")) { if (car.model_status !== "queued") return J([]); Object.assign(car, JSON.parse(opt.body)); return J([car]); }
   if (url === "https://api.meshy.ai/openapi/v1/multi-image-to-3d") { const b = JSON.parse(opt.body); assert(b.image_urls.length >= 1 && b.image_urls.length <= 4); return J({ result: "task1" }); }
   if (url.startsWith("https://api.meshy.ai/openapi/v1/multi-image-to-3d/")) return J(meshyTask);
   if (url.startsWith("https://assets.test/")) return J({});
@@ -60,6 +64,25 @@ const fresh = () => { calls = []; recent = []; car = { id: C, owner_id: U, user_
   fresh(); r = await call("model-upload.js", { method: "POST", headers: auth, body: { carId: C } });
   assert.equal(r.status, 200); assert.equal(r.body.token, "tok1"); assert(r.body.path.startsWith(U + "/" + C + "/upload-") && r.body.path.endsWith(".glb"));
   r = await call("model-upload.js", { method: "POST", headers: {}, body: { carId: C } }); assert.equal(r.status, 401);
+
+  // Çizgi film tarzı çizimler
+  process.env.MODEL_MODE = "toon"; fresh(); car.brand = "Fiat"; car.model = "Egea";
+  r = await call("model-start.js", { method: "POST", headers: auth, body: { carId: C } });
+  assert.equal(r.status, 200); assert.equal(car.model_provider, "toon"); assert.equal(car.model_status, "queued");
+  let man = JSON.parse(car.model_task_id); assert.equal(man.tasks.fq, "img1"); assert(!imgTasks.img1.reference_image_urls.some((u) => u.includes("/public/")));
+  await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(car.model_status, "queued"); assert.equal(imgN, 1);
+  imgState.img1 = { status: "SUCCEEDED", image_urls: ["https://assets.test/a.png"] };
+  await call("model-status.js", { headers: auth, query: { carId: C } });
+  man = JSON.parse(car.model_task_id); assert.equal(car.model_status, "processing"); assert.equal(imgN, 6, "ana çizimden sonra 5 açı daha başlamalı");
+  assert(man.views.fq.endsWith("-fq.png")); assert.equal(car.model_thumb_path, man.views.fq);
+  assert(imgTasks.img2.reference_image_urls[0].includes("/storage/v1/object/public/car-models/"), "diğer açılar ana çizimi stil örneği olarak almalı");
+  await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(imgN, 6, "açılar ikinci kez başlatılmamalı");
+  ["img2", "img3", "img4", "img5"].forEach((id) => (imgState[id] = { status: "SUCCEEDED", image_urls: ["https://assets.test/a.png"] })); imgState.img6 = { status: "FAILED", task_error: { message: "x" } };
+  await call("model-status.js", { headers: auth, query: { carId: C } });
+  man = JSON.parse(car.model_task_id); assert.equal(car.model_status, "ready"); assert.equal(Object.keys(man.views).length, 5); assert.equal(man.failed.length, 1);
+  fresh(); car.brand = "Fiat"; car.model = "Egea"; await call("model-start.js", { method: "POST", headers: auth, body: { carId: C } });
+  imgState["img" + imgN] = { status: "FAILED", task_error: { message: "moderation" } };
+  await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(car.model_status, "failed"); assert.equal(car.model_error, "moderation");
 
   console.log("Tüm sunucu testleri geçti.");
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -1,6 +1,7 @@
 // 3D üretimi başlatır: aracın fotoğraflarını Meshy'nin çok görselli image-to-3D servisine gönderir.
 // Belgeler: https://docs.meshy.ai/en/api/multi-image-to-3d
 const { configured, send, userOf, db, signUrl, ownPath, readJson, UUID } = require("./_lib");
+const { startToon } = require("./_toon");
 
 // Meshy en fazla 4 görsel alır ve ilk görseli ön görünüm sayar.
 const ORDER = ["front", "left", "right", "rear", "frontq", "rearq"];
@@ -39,10 +40,17 @@ module.exports = async (req, res) => {
     if (car.model_status === "queued" || car.model_status === "processing") return send(res, 200, { car });
 
     // Kredi koruması: kullanıcı başına günlük üretim sınırı.
-    const limit = parseInt(process.env.MODEL_DAILY_LIMIT || "3", 10);
+    const limit = parseInt(process.env.MODEL_DAILY_LIMIT || "10", 10);
     const since = new Date(Date.now() - 864e5).toISOString();
     const recent = await db("cars?owner_id=eq." + user.id + "&model_requested_at=gte." + encodeURIComponent(since) + "&select=id");
     if (recent.length >= limit) return send(res, 429, { error: "daily_limit", limit });
+
+    // Varsayılan: çizgi film tarzı çizimler. MODEL_MODE=3d ile fotoğraftan 3D model üretimine dönülür.
+    if ((process.env.MODEL_MODE || "toon") !== "3d") {
+      const out = await startToon(car);
+      if (out.car) return send(res, 200, { car: out.car });
+      return send(res, out.status === 402 || out.status === 429 || out.status === 400 ? out.status : 502, { error: out.error || "model3d_failed", detail: out.detail });
+    }
 
     const photos = pickPhotos((car.photo_paths || []).filter((p) => ownPath(user.id, p)));
     if (!photos.length) return send(res, 400, { error: "no_photos" });

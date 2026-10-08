@@ -1,6 +1,7 @@
 // 3D üretiminin durumunu Meshy'den okur. Bittiğinde dosyaları kendi depomuza kopyalar,
 // çünkü Meshy'nin verdiği adresler süreli; model tekrar kullanılabilir kalmalı.
 const { configured, send, userOf, db, putObject, UUID } = require("./_lib");
+const { advanceToon } = require("./_toon");
 
 const MAX_BYTES = 45 * 1024 * 1024;
 
@@ -27,6 +28,7 @@ module.exports = async (req, res) => {
     if (!car) return send(res, 404, { error: "car" });
     const pending = car.model_status === "queued" || car.model_status === "processing";
     if (!pending || !car.model_task_id || !process.env.MESHY_API_KEY) return send(res, 200, { car });
+    if (car.model_provider === "toon") return send(res, 200, { car: await advanceToon(car) });
 
     const r = await fetch("https://api.meshy.ai/openapi/v1/multi-image-to-3d/" + encodeURIComponent(car.model_task_id), {
       headers: { Authorization: "Bearer " + process.env.MESHY_API_KEY },

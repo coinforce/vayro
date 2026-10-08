@@ -12,12 +12,12 @@ const ERR = {
   recognition_failed: "Tanıma tamamlanamadı. Yeniden dene ya da bilgileri elle gir.",
   recognition_unreadable: "Yapay zekânın yanıtı okunamadı. Yeniden dene.",
   rate_limited: "Şu an çok fazla istek var. Biraz sonra yeniden dene.",
-  model3d_not_configured: "3D üretim servisi bağlı değil.",
-  model3d_no_credits: "3D üretim servisinde kredi kalmamış.",
-  model3d_bad_key: "3D üretim servisinin anahtarı geçersiz.",
-  model3d_failed: "3D üretimi başlatılamadı. Biraz sonra yeniden dene.",
-  daily_limit: "Bugünkü 3D üretim hakkın doldu. Yarın yeniden deneyebilirsin.",
-  no_photos: "Bu araçta 3D üretim için fotoğraf yok.",
+  model3d_not_configured: "Çizim servisi bağlı değil.",
+  model3d_no_credits: "Çizim servisinde (Meshy) kredi kalmamış.",
+  model3d_bad_key: "Çizim servisinin (Meshy) anahtarı geçersiz.",
+  model3d_failed: "Çizim üretimi başlatılamadı. Biraz sonra yeniden dene.",
+  daily_limit: "Bugünkü üretim hakkın doldu. Yarın yeniden deneyebilirsin.",
+  no_photos: "Bu araçta üretim için fotoğraf yok.",
   upload_failed: "Model dosyası yüklenemedi.",
 };
 let toastT;
@@ -78,7 +78,7 @@ function cardEl(c) {
   let shot;
   if (c.model_thumb_path) { shot = document.createElement("img"); shot.className = "shot"; shot.alt = ""; shot.loading = "lazy"; shot.src = pubUrl(c.model_thumb_path); }
   else { shot = document.createElement("div"); shot.className = "shot ph";
-    shot.textContent = c.model_status === "queued" || c.model_status === "processing" ? "3D ÜRETİLİYOR %" + (c.model_progress || 0) : c.model_status === "failed" ? "3D ÜRETİLEMEDİ" : c.model_status === "ready" ? "3D MODEL HAZIR" : "3D MODEL YOK"; }
+    shot.textContent = c.model_status === "queued" || c.model_status === "processing" ? "ÇİZİM HAZIRLANIYOR %" + (c.model_progress || 0) : c.model_status === "failed" ? "ÇİZİM ÜRETİLEMEDİ" : c.model_status === "ready" ? "MODEL HAZIR" : "ÇİZİM YOK"; }
   const m = document.createElement("div"); m.className = "meta";
   const n = document.createElement("div"); n.className = "name"; n.textContent = (str(c.brand, 40) + " " + str(c.model, 60)).trim() || "İsimsiz araç"; m.appendChild(n);
   if (c.nickname) { const p = document.createElement("div"); p.className = "plate"; p.innerHTML = "<b>TR</b><span></span>"; p.lastChild.textContent = str(c.nickname, 24).toUpperCase(); m.appendChild(p); }
@@ -218,7 +218,7 @@ $("btnConfirm").addEventListener("click", async () => {
 /* ---------- 3D model ---------- */
 async function startModel(car) {
   try { const { car: c } = await api("/api/model-start", { method: "POST", body: JSON.stringify({ carId: car.id }) }); mergeCar(c); }
-  catch (e) { toast(ERR[e.code] || ERR.model3d_failed); }
+  catch (e) { toast((ERR[e.code] || ERR.model3d_failed) + (e.detail ? " Ayrıntı: " + e.detail : "")); }
   if (view === "detail" && current && current.id === car.id) { renderStage(); watch(); }
 }
 const pending = (c) => c.model_status === "queued" || c.model_status === "processing";
@@ -226,10 +226,13 @@ function watch() {
   clearInterval(pollT); pollT = null;
   if (!current || !isMine(current) || !pending(current)) return;
   const id = current.id;
+  let busy = false;
   pollT = setInterval(async () => {
     if (view !== "detail" || !current || current.id !== id) { clearInterval(pollT); return; }
+    if (busy) return; busy = true;
     try { const { car } = await api("/api/model-status?carId=" + id); mergeCar(car); renderStage(); if (!pending(current)) { clearInterval(pollT); fillDetail(false); } } catch (e) { /* bir sonraki turda yeniden denenir */ }
-  }, 6000);
+    busy = false;
+  }, 5000);
 }
 // Sabit bakış açıları: yön (th), yükseklik (ph) ve uzaklık (r). th=0 aracın önü, +90 sol yanı.
 const ANGLES = [
@@ -239,11 +242,36 @@ const ANGLES = [
   { k: "t", t: "Üst", th: 0, ph: 0, r: 95 }];
 const yawOf = (c) => Number(c.field_source && c.field_source._yaw) || 0;
 const orbit = (a, yaw) => (a.th + yaw) + "deg " + a.ph + "deg " + a.r + "%";
+// Çizgi film tarzı çizimler: hangi açının hangi dosyada olduğu model_task_id içindeki JSON'da durur.
+const TOON = [["fq", "Ön çapraz"], ["l", "Yan"], ["f", "Ön"], ["b", "Arka"], ["rq", "Arka çapraz"], ["t", "Üst"]];
+function toonViews(c) {
+  if (c.model_provider !== "toon" || !c.model_task_id) return null;
+  try { const v = JSON.parse(c.model_task_id).views || {}; const out = TOON.filter(([k]) => typeof v[k] === "string").map(([k, t]) => ({ k, t, src: pubUrl(v[k]) })); return out.length ? out : null; } catch (e) { return null; }
+}
+function anglePicker(st, items, onPick, extra) {
+  const pick = document.createElement("div"); pick.className = "angles";
+  const tog = document.createElement("button"); tog.type = "button"; tog.className = "angle-toggle"; tog.setAttribute("aria-expanded", "false");
+  const list = document.createElement("div"); list.className = "angle-list"; list.hidden = true;
+  const set = (a) => { onPick(a); tog.textContent = "Açı: " + a.t + " ▾"; list.querySelectorAll("button[data-k]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === a.k))); };
+  items.forEach((a) => { const b = document.createElement("button"); b.type = "button"; b.dataset.k = a.k; b.textContent = a.t;
+    b.addEventListener("click", () => { set(a); list.hidden = true; tog.setAttribute("aria-expanded", "false"); }); list.appendChild(b); });
+  if (extra) list.appendChild(extra);
+  tog.addEventListener("click", () => { list.hidden = !list.hidden; tog.setAttribute("aria-expanded", String(!list.hidden)); });
+  pick.append(tog, list); st.appendChild(pick); set(items[0]); return set;
+}
 function renderStage() {
   const c = current, st = $("detStage"), own = isMine(c);
-  const key = c.id + c.model_status + (pending(c) ? c.model_progress : "") + (c.model_glb_path || "");
+  const key = c.id + c.model_status + (pending(c) ? c.model_progress : "") + (c.model_glb_path || "") + (c.model_thumb_path || "") + (c.model_status === "ready" ? String(c.model_task_id || "").length : "");
   if (key === stageKey) return; stageKey = key; st.textContent = "";
   const note = $("detModelNote"); note.textContent = "";
+  const toon = c.model_status === "ready" ? toonViews(c) : null;
+  if (toon) {
+    const img = document.createElement("img"); img.className = "toon"; img.alt = (c.brand + " " + c.model).trim() + " çizimi"; st.appendChild(img);
+    toon.forEach((v) => { const pre = new Image(); pre.src = v.src; }); // açılar arası geçiş beklemesiz olsun
+    anglePicker(st, toon, (v) => { img.classList.remove("in"); img.src = v.src; requestAnimationFrame(() => img.classList.add("in")); });
+    note.textContent = "Çizimler aracının fotoğraflarından yapay zekâyla üretildi; ayrıntılar gerçeğinden farklı olabilir. Açıyı değiştirmek için sol üstteki kutuya dokun.";
+    return;
+  }
   if (c.model_status === "ready" && c.model_glb_path) {
     const mv = document.createElement("model-viewer");
     mv.setAttribute("src", pubUrl(c.model_glb_path));
@@ -258,38 +286,31 @@ function renderStage() {
     mv.setAttribute("field-of-view", "26deg"); mv.setAttribute("min-field-of-view", "10deg"); mv.setAttribute("interpolation-decay", "120");
     mv.setAttribute("interaction-prompt", "none");
     st.appendChild(mv);
-    const pick = document.createElement("div"); pick.className = "angles";
-    const tog = document.createElement("button"); tog.type = "button"; tog.className = "angle-toggle"; tog.setAttribute("aria-expanded", "false");
-    const list = document.createElement("div"); list.className = "angle-list"; list.hidden = true;
-    let yaw = yawOf(c), cur = ANGLES[0];
-    const setAngle = (a) => { cur = a; mv.setAttribute("camera-orbit", orbit(a, yaw)); tog.textContent = "Açı: " + a.t + " ▾"; list.querySelectorAll("button[data-k]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === a.k))); };
-    ANGLES.forEach((a) => { const b = document.createElement("button"); b.type = "button"; b.dataset.k = a.k; b.textContent = a.t;
-      b.addEventListener("click", () => { setAngle(a); list.hidden = true; tog.setAttribute("aria-expanded", "false"); }); list.appendChild(b); });
+    let yaw = yawOf(c), cur = ANGLES[0], fix = null, setA = null;
     if (own) { // Modelin önü yanlış yöne bakıyorsa sahibi 90 derecelik adımlarla düzeltir; ayar araca kaydedilir.
-      const fix = document.createElement("button"); fix.type = "button"; fix.className = "angle-fix"; fix.textContent = "↻ Yönü düzelt (90°)";
-      fix.addEventListener("click", async () => { yaw = (yaw + 90) % 360; setAngle(cur);
+      fix = document.createElement("button"); fix.type = "button"; fix.className = "angle-fix"; fix.textContent = "↻ Yönü düzelt (90°)";
+      fix.addEventListener("click", async () => { yaw = (yaw + 90) % 360; setA(cur);
         const fs = Object.assign({}, c.field_source || {}, { _yaw: yaw });
         const { error } = await sb.from("cars").update({ field_source: fs }).eq("id", c.id);
-        if (error) toast("Yön kaydedilemedi."); else mergeCar({ id: c.id, field_source: fs }); });
-      list.appendChild(fix); }
-    tog.addEventListener("click", () => { list.hidden = !list.hidden; tog.setAttribute("aria-expanded", String(!list.hidden)); });
-    setAngle(ANGLES[0]); pick.append(tog, list); st.appendChild(pick);
+        if (error) toast("Yön kaydedilemedi."); else mergeCar({ id: c.id, field_source: fs }); }); }
+    setA = anglePicker(st, ANGLES, (x) => { cur = x; mv.setAttribute("camera-orbit", orbit(x, yaw)); }, fix);
     note.textContent = (c.model_provider === "upload" ? "Bu model senin yüklediğin dosyadır. " : "Model fotoğraflarından yapay zekâyla üretildi; fotoğrafta görünmeyen kısımlar tahmindir. ") + "Açıyı değiştirmek için sol üstteki kutuya dokun. Cihazın destekliyorsa sağ alttaki AR düğmesiyle aracı zemine yerleştirebilirsin. AR'ı yalnızca araç park hâlindeyken kullan.";
     return;
   }
   const w = document.createElement("div"); w.className = "wait";
   const t = document.createElement("div"); t.style.fontWeight = "600";
   if (pending(c)) {
-    t.textContent = c.model_status === "queued" ? "3D model sırada bekliyor" : "3D model üretiliyor %" + (c.model_progress || 0);
+    if (c.model_thumb_path) { const bg = document.createElement("img"); bg.src = pubUrl(c.model_thumb_path); bg.alt = ""; bg.style.objectFit = "contain"; w.appendChild(bg); }
+    t.textContent = c.model_status === "queued" ? "Ana çizim hazırlanıyor" : "Diğer açılar çiziliyor %" + (c.model_progress || 0);
     const bar = document.createElement("div"); bar.className = "bar"; const i = document.createElement("i"); i.style.width = Math.max(4, c.model_progress || 0) + "%"; bar.appendChild(i);
-    const s = document.createElement("div"); s.className = "small muted"; s.textContent = "Birkaç dakika sürebilir. Sayfayı kapatırsan üretim devam eder; geri döndüğünde bu ekranı aç.";
+    const s = document.createElement("div"); s.className = "small muted"; s.textContent = "Bir iki dakika sürebilir. Bu ekran açık kaldıkça ilerler.";
     w.append(t, bar, s);
   } else if (c.model_status === "failed") {
-    t.textContent = "3D model üretilemedi"; const s = document.createElement("div"); s.className = "small muted"; s.textContent = str(c.model_error, 300) || "Bilinmeyen hata."; w.append(t, s);
+    t.textContent = "Çizim üretilemedi"; const s = document.createElement("div"); s.className = "small muted"; s.textContent = str(c.model_error, 300) || "Bilinmeyen hata."; w.append(t, s);
     if (own && cfg.model3d) { const b = document.createElement("button"); b.className = "primary"; b.textContent = "Yeniden dene"; b.addEventListener("click", () => { b.disabled = true; startModel(c); }); w.appendChild(b); }
   } else {
-    t.textContent = "Bu aracın 3D modeli yok"; w.appendChild(t);
-    if (own && cfg.model3d) { const b = document.createElement("button"); b.className = "primary"; b.textContent = "3D modeli oluştur"; b.addEventListener("click", () => { b.disabled = true; startModel(c); }); w.appendChild(b); }
+    t.textContent = "Bu aracın çizimi yok"; w.appendChild(t);
+    if (own && cfg.model3d) { const b = document.createElement("button"); b.className = "primary"; b.textContent = "Çizimleri oluştur"; b.addEventListener("click", () => { b.disabled = true; startModel(c); }); w.appendChild(b); }
     else if (own) { const s = document.createElement("div"); s.className = "small muted"; s.textContent = ERR.model3d_not_configured; w.appendChild(s); }
   }
   st.appendChild(w);
