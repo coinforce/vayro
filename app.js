@@ -32,7 +32,7 @@ let view = "auth", current = null, pollT = null, stageKey = "";
 async function api(path, opt = {}) {
   const r = await fetch(path, { ...opt, headers: { ...(opt.headers || {}), Authorization: "Bearer " + (session ? session.access_token : ""), ...(opt.body ? { "Content-Type": "application/json" } : {}) } });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error(j.error || "http_" + r.status); e.code = j.error || "http"; throw e; }
+  if (!r.ok) { const e = new Error(j.error || "http_" + r.status); e.code = j.error || "http"; e.detail = j.detail || (j.error ? "" : "Sunucu " + r.status + " yanıtı verdi."); throw e; }
   return j;
 }
 const pubUrl = (path) => sb.storage.from("car-models").getPublicUrl(path).data.publicUrl;
@@ -159,7 +159,7 @@ async function analyze() {
     if (!result || result.is_vehicle === false) return scanFail("Fotoğraflarda bir araç seçilemedi. Aracın tamamı görünecek şekilde, iyi ışıkta yeniden çek.");
     ai = result; openResult();
   } catch (e) {
-    scanFail(e.code === "upload" ? "Fotoğraflar yüklenemedi. Bağlantını kontrol edip yeniden dene." : ERR[e.code] || ERR.recognition_failed);
+    scanFail((e.code === "upload" ? "Fotoğraflar yüklenemedi. Bağlantını kontrol edip yeniden dene." : ERR[e.code] || ERR.recognition_failed) + (e.detail ? " Ayrıntı: " + e.detail : e.code ? "" : " Ayrıntı: " + (e.message || "")));
   }
 }
 $("btnAnalyze").addEventListener("click", analyze);

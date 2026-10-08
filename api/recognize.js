@@ -54,7 +54,8 @@ module.exports = async (req, res) => {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       console.error("anthropic", r.status, JSON.stringify(j).slice(0, 400));
-      return send(res, r.status === 429 ? 429 : 502, { error: r.status === 429 ? "rate_limited" : "recognition_failed" });
+      const detail = "Anthropic " + r.status + ": " + String((j.error && (j.error.message || j.error.type)) || "yanıt okunamadı").slice(0, 240);
+      return send(res, r.status === 429 ? 429 : 502, { error: r.status === 429 ? "rate_limited" : "recognition_failed", detail });
     }
     const text = (j.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
     const result = parseJson(text);
@@ -62,6 +63,6 @@ module.exports = async (req, res) => {
     return send(res, 200, { result });
   } catch (e) {
     console.error("recognize", e);
-    return send(res, 500, { error: "recognition_failed" });
+    return send(res, 500, { error: "recognition_failed", detail: String((e && e.message) || e).slice(0, 240) });
   }
 };
