@@ -216,8 +216,8 @@ $("btnConfirm").addEventListener("click", async () => {
 });
 
 /* ---------- 3D model ---------- */
-async function startModel(car) {
-  try { const { car: c } = await api("/api/model-start", { method: "POST", body: JSON.stringify({ carId: car.id }) }); mergeCar(c); }
+async function startModel(car, view) {
+  try { const { car: c } = await api("/api/model-start", { method: "POST", body: JSON.stringify(view ? { carId: car.id, view } : { carId: car.id }) }); mergeCar(c); }
   catch (e) { toast((ERR[e.code] || ERR.model3d_failed) + (e.detail ? " Ayrıntı: " + e.detail : "")); }
   if (view === "detail" && current && current.id === car.id) { renderStage(); watch(); }
 }
@@ -268,7 +268,12 @@ function renderStage() {
   if (toon) {
     const img = document.createElement("img"); img.className = "toon"; img.alt = (c.brand + " " + c.model).trim() + " çizimi"; st.appendChild(img);
     toon.forEach((v) => { const pre = new Image(); pre.src = v.src; }); // açılar arası geçiş beklemesiz olsun
-    anglePicker(st, toon, (v) => { img.classList.remove("in"); img.src = v.src; requestAnimationFrame(() => img.classList.add("in")); });
+    let curV = toon[0], redo = null;
+    if (own && cfg.model3d) { // yalnızca seçili açıyı yeniden çizer; ana çizim (ön çapraz) korunur
+      redo = document.createElement("button"); redo.type = "button"; redo.className = "angle-fix";
+      redo.addEventListener("click", () => { redo.disabled = true; stageKey = ""; startModel(c, curV.k); }); }
+    anglePicker(st, toon, (v) => { curV = v; img.classList.remove("in"); img.src = v.src; requestAnimationFrame(() => img.classList.add("in"));
+      if (redo) { redo.hidden = v.k === "fq"; redo.textContent = "↻ \"" + v.t + "\" açısını yeniden çiz (9 kredi)"; } }, redo);
     note.textContent = "Çizimler aracının fotoğraflarından yapay zekâyla üretildi; ayrıntılar gerçeğinden farklı olabilir. Açıyı değiştirmek için sol üstteki kutuya dokun.";
     return;
   }

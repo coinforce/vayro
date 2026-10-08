@@ -12,7 +12,8 @@ const STYLE =
   "oversized wheels, slightly enlarged cabin. Smooth vector-style shading with soft gradients and bright highlights, clean dark outlines. " +
   "Keep the real car's identity: same make and model shape cues, same body color, same stripes and livery, same wheels, spoiler, lights and vents. " +
   "Only the car: no people, no driver, no passengers, empty seats, dark tinted windows. " +
-  "No text, no watermark, no logos or lettering, blank license plate. No ground, no shadow, no scenery, plain empty background. " +
+  "No watermark, no caption, no license plate (leave the bumper clean where a plate would be). No ground, no shadow, no scenery, plain empty background. " +
+  "No white border, no sticker outline, no glow or halo around the car. " +
   "One single car, fully inside the frame, centered.";
 
 // slots: o açı için en yararlı fotoğraflar (dosya adları tarama kutularından gelir)
@@ -35,18 +36,18 @@ function promptFor(car, key, hasStyleRef) {
   const who = "The car is a " + clean(car.brand, 40) + " " + clean(car.model, 60) + (car.year ? " (" + clean(car.year, 20) + ")" : "") +
     (car.color_name ? ". Body color: " + clean(car.color_name, 60) : "") + ".";
   const ref = hasStyleRef
-    ? " The first reference images are photos of the real car, taken from the required viewing angle: match that camera angle exactly and use them for the details. The LAST reference image is an existing illustration of the same car from a DIFFERENT angle: copy only its drawing style (proportions, colors, shading, outline weight). Do not copy its viewing angle or pose."
+    ? " Reference image 1 is a finished cartoon illustration of this car. Draw the SAME cartoon car again in exactly the same drawing style (same chibi proportions, same colors, same shading, same outline weight, same level of detail), but with the camera moved to the new viewing angle described above. It must look like the same toy car turned to face a different direction, not like a photo. The remaining reference image is a photo of the real car from that angle: use it only to get the parts right that image 1 does not show. Do not adopt the photo's realistic proportions or lighting."
     : " The reference images are photos of the real car.";
   return STYLE + " " + who + " " + VIEWS[key].text + ref;
 }
 
 async function create(car, key, styleUrl) {
   const paths = (car.photo_paths || []).filter((p) => ownPath(car.owner_id, p));
-  let pick = VIEWS[key].slots.map((s) => paths.find((p) => slotOf(p) === s)).filter(Boolean).slice(0, styleUrl ? 2 : 4);
+  let pick = VIEWS[key].slots.map((s) => paths.find((p) => slotOf(p) === s)).filter(Boolean).slice(0, styleUrl ? 1 : 4);
   if (!pick.length) pick = paths.slice(0, 3);
   if (!pick.length) return { status: 400, error: "no_photos" };
   const refs = await Promise.all(pick.map((p) => signUrl("car-photos", p, 3600)));
-  if (styleUrl) refs.push(styleUrl); // stil örneği sona: açıyı fotoğraflar belirlesin
+  if (styleUrl) refs.unshift(styleUrl); // 1. görsel: bitmiş ana çizim; ardından o açının fotoğrafı
   const r = await fetch(API, {
     method: "POST",
     headers: { ...auth(), "Content-Type": "application/json" },
@@ -96,8 +97,9 @@ async function advanceToon(car) {
     if (t.status === "SUCCEEDED" && Array.isArray(t.image_urls) && t.image_urls[0]) {
       const img = await fetch(t.image_urls[0]);
       if (!img.ok) return { state: "wait" };
-      await putObject("car-models", base + key + ".png", Buffer.from(await img.arrayBuffer()), "image/png");
-      m.views[key] = base + key + ".png";
+      const file = base + key + "-" + String(m.tasks[key]).replace(/[^a-z0-9]/gi, "").slice(-8) + ".png"; // her üretimde yeni ad: eski görsel önbellekte kalmasın
+      await putObject("car-models", file, Buffer.from(await img.arrayBuffer()), "image/png");
+      m.views[key] = file;
       return { state: "done" };
     }
     if (t.status === "FAILED" || t.status === "CANCELED" || t.status === "SUCCEEDED") {
@@ -131,4 +133,16 @@ async function advanceToon(car) {
   return save({ ...common, model_status: "processing", model_progress: Math.min(99, Math.round((100 * (all.length - left.length)) / all.length)) });
 }
 
-module.exports = { startToon, advanceToon, viewList, promptFor, VIEWS };
+// Tek bir açıyı (ana çizim dışında) yeniden çizer; diğer açılara dokunmaz.
+async function redoView(car, key) {
+  let m;
+  try { m = JSON.parse(car.model_task_id); } catch (e) { m = null; }
+  if (!m || !m.toon || !m.views || !m.views.fq || key === "fq" || !VIEWS[key]) return { status: 400, error: "model3d_failed", detail: "Bu açı tek başına yeniden çizilemez." };
+  const made = await create(car, key, SB + "/storage/v1/object/public/car-models/" + m.views.fq);
+  if (!made.id) return made;
+  m.tasks[key] = made.id; delete m.views[key]; m.failed = (m.failed || []).filter((k) => k !== key);
+  const upd = await db("cars?id=eq." + car.id, { method: "PATCH", body: JSON.stringify({ model_status: "processing", model_progress: 50, model_task_id: JSON.stringify(m), model_error: null, model_requested_at: new Date().toISOString() }) });
+  return { car: upd[0] };
+}
+
+module.exports = { startToon, advanceToon, redoView, viewList, promptFor, VIEWS };

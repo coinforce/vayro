@@ -74,12 +74,22 @@ const fresh = () => { calls = []; recent = []; car = { id: C, owner_id: U, user_
   imgState.img1 = { status: "SUCCEEDED", image_urls: ["https://assets.test/a.png"] };
   await call("model-status.js", { headers: auth, query: { carId: C } });
   man = JSON.parse(car.model_task_id); assert.equal(car.model_status, "processing"); assert.equal(imgN, 6, "ana çizimden sonra 5 açı daha başlamalı");
-  assert(man.views.fq.endsWith("-fq.png")); assert.equal(car.model_thumb_path, man.views.fq);
-  assert(imgTasks.img2.reference_image_urls.slice(-1)[0].includes("/storage/v1/object/public/car-models/"), "diğer açılar ana çizimi stil örneği olarak almalı");
+  assert(/-fq-[a-z0-9]+\.png$/.test(man.views.fq)); assert.equal(car.model_thumb_path, man.views.fq);
+  assert(imgTasks.img2.reference_image_urls[0].includes("/storage/v1/object/public/car-models/") && imgTasks.img2.reference_image_urls.length === 2, "diğer açılar ana çizimi stil örneği olarak almalı");
   await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(imgN, 6, "açılar ikinci kez başlatılmamalı");
   ["img2", "img3", "img4", "img5"].forEach((id) => (imgState[id] = { status: "SUCCEEDED", image_urls: ["https://assets.test/a.png"] })); imgState.img6 = { status: "FAILED", task_error: { message: "x" } };
   await call("model-status.js", { headers: auth, query: { carId: C } });
   man = JSON.parse(car.model_task_id); assert.equal(car.model_status, "ready"); assert.equal(Object.keys(man.views).length, 5); assert.equal(man.failed.length, 1);
+  // tek açıyı yeniden çizme
+  const before = man.views.l, n0 = imgN;
+  r = await call("model-start.js", { method: "POST", headers: auth, body: { carId: C, view: "l" } });
+  assert.equal(r.status, 200); assert.equal(imgN, n0 + 1); assert.equal(car.model_status, "processing");
+  man = JSON.parse(car.model_task_id); assert(!man.views.l && man.views.fq && man.views.f);
+  imgState["img" + imgN] = { status: "SUCCEEDED", image_urls: ["https://assets.test/a.png"] };
+  await call("model-status.js", { headers: auth, query: { carId: C } });
+  man = JSON.parse(car.model_task_id); assert.equal(car.model_status, "ready"); assert(man.views.l && man.views.l !== before);
+  r = await call("model-start.js", { method: "POST", headers: auth, body: { carId: C, view: "fq" } }); assert.equal(r.status, 400);
+
   fresh(); car.brand = "Fiat"; car.model = "Egea"; await call("model-start.js", { method: "POST", headers: auth, body: { carId: C } });
   imgState["img" + imgN] = { status: "FAILED", task_error: { message: "moderation" } };
   await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(car.model_status, "failed"); assert.equal(car.model_error, "moderation");

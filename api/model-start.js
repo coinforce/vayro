@@ -1,7 +1,7 @@
 // 3D üretimi başlatır: aracın fotoğraflarını Meshy'nin çok görselli image-to-3D servisine gönderir.
 // Belgeler: https://docs.meshy.ai/en/api/multi-image-to-3d
 const { configured, send, userOf, db, signUrl, ownPath, readJson, UUID } = require("./_lib");
-const { startToon } = require("./_toon");
+const { startToon, redoView } = require("./_toon");
 
 // Meshy en fazla 4 görsel alır ve ilk görseli ön görünüm sayar.
 const ORDER = ["front", "left", "right", "rear", "frontq", "rearq"];
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
   try {
     const user = await userOf(req);
     if (!user) return send(res, 401, { error: "auth" });
-    const { carId } = await readJson(req);
+    const { carId, view } = await readJson(req);
     if (!UUID.test(carId || "")) return send(res, 400, { error: "car" });
 
     const rows = await db("cars?id=eq." + carId + "&owner_id=eq." + user.id + "&select=*");
@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
 
     // Varsayılan: çizgi film tarzı çizimler. MODEL_MODE=3d ile fotoğraftan 3D model üretimine dönülür.
     if ((process.env.MODEL_MODE || "toon") !== "3d") {
-      const out = await startToon(car);
+      const out = view && car.model_provider === "toon" ? await redoView(car, String(view)) : await startToon(car);
       if (out.car) return send(res, 200, { car: out.car });
       return send(res, out.status === 402 || out.status === 429 || out.status === 400 ? out.status : 502, { error: out.error || "model3d_failed", detail: out.detail });
     }
