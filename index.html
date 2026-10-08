@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1920">
+<title>VAYRO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<style>html{color-scheme:light dark}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">VAY<i>RO</i></div>
+    <div class="who"><span id="who"></span> <button class="linkbtn" id="btnOut" hidden>Çıkış</button></div>
+  </header>
+  <div class="notice bad" id="setupNote" hidden></div>
+
+  <!-- GİRİŞ -->
+  <section class="view auth" id="v-auth" hidden>
+    <div><div class="eyebrow">Hesap</div><h1>Garajına gir</h1></div>
+    <p class="muted">Aracını tara, yapay zekâ tanısın, fotoğraflarından 3D modeli üretilsin.</p>
+    <form id="authForm" class="view">
+      <div class="field"><label for="a-email">E-posta</label><input type="email" id="a-email" autocomplete="email" required></div>
+      <div class="field"><label for="a-pass">Şifre (en az 6 karakter)</label><input type="password" id="a-pass" autocomplete="current-password" minlength="6" required></div>
+      <div class="row"><button class="primary grow" type="submit" id="btnIn">Giriş yap</button><button type="button" id="btnUp">Hesap oluştur</button></div>
+    </form>
+    <div class="notice" id="authMsg" hidden></div>
+  </section>
+
+  <!-- GARAJIM -->
+  <section class="view" id="v-garage" hidden>
+    <div class="row"><div class="grow"><div class="eyebrow">Garajım</div><h1 id="gTitle">Araçların</h1></div>
+      <button class="primary" data-go="scan">Yeni Araç Ekle</button></div>
+    <p class="muted" id="gEmpty" hidden>Garajın boş. Aracının fotoğraflarını çek, yapay zekâ markasını ve modelini tahmin etsin, sen onayla. Onayladığın aracın 3D modeli fotoğraflarından üretilir.</p>
+    <div class="cards" id="gCards"></div>
+  </section>
+
+  <!-- KEŞFET -->
+  <section class="view" id="v-explore" hidden>
+    <div><div class="eyebrow">Keşfet</div><h1>Herkese açık araçlar</h1></div>
+    <p class="muted small">Sıralama beğeni sayısına göredir.</p>
+    <div class="cards" id="xCards"></div>
+    <p class="muted" id="xEmpty" hidden>Henüz herkese açık araç yok. İlkini sen ekleyebilirsin.</p>
+  </section>
+
+  <!-- TARAMA -->
+  <section class="view" id="v-scan" hidden>
+    <div><div class="eyebrow">Yeni araç · tarama</div><h1>Aracını dört yandan çek</h1></div>
+    <div id="scanPick" class="view">
+      <p class="muted">Her kutuya dokununca kamera açılır. Ön, arka, bir yan ve bir çapraz açı zorunlu. Aracın tamamı kadraja girsin, arka plan sade olsun. Çekimi araç park hâlindeyken yap.</p>
+      <div class="slots" id="slots"></div>
+      <div class="row"><span class="grow small muted" id="scanCount"></span>
+        <button class="primary" id="btnAnalyze" disabled>Aracı tanı</button></div>
+      <button class="ghost" id="btnManual">AI olmadan elle gir</button>
+    </div>
+    <div id="scanRun" class="view" hidden>
+      <ul class="steps" id="steps">
+        <li data-s="up">Fotoğraflar yükleniyor</li>
+        <li data-s="ai">Yapay zekâ aracı inceliyor (1 dakikayı bulabilir)</li>
+        <li data-s="done">Sonuçlar onayına sunuluyor</li>
+      </ul>
+    </div>
+    <div id="scanErr" class="view" hidden>
+      <div class="notice bad" id="scanErrMsg"></div>
+      <div class="row"><button id="btnRetry">Fotoğraflara dön</button><button class="ghost" id="btnManual2">Elle gir</button></div>
+    </div>
+  </section>
+
+  <!-- SONUÇ / ONAY -->
+  <section class="view" id="v-result" hidden>
+    <div><div class="eyebrow">Tanıma sonucu</div><h1>Bilgileri kontrol et</h1></div>
+    <div class="notice" id="resNote"></div>
+    <div class="photos" id="resPhotos"></div>
+    <div class="grid2">
+      <div class="field" data-f="brand"><label for="f-brand">Marka</label><input type="text" id="f-brand" maxlength="40"></div>
+      <div class="field" data-f="model"><label for="f-model">Model</label><input type="text" id="f-model" maxlength="60"></div>
+      <div class="field" data-f="year"><label for="f-year">Model yılı</label><input type="text" id="f-year" maxlength="20" placeholder="Bilinmiyorsa boş bırak"></div>
+      <div class="field" data-f="bodyType"><label for="f-bodyType">Kasa tipi</label><select id="f-bodyType"></select></div>
+      <div class="field" data-f="colorName"><label for="f-colorName">Renk</label>
+        <div class="row"><input type="color" id="f-colorHex" aria-label="Renk tonu"><input class="grow" type="text" id="f-colorName" maxlength="40"></div></div>
+      <div class="field" data-f="wheels"><label for="f-wheels">Jantlar</label><input type="text" id="f-wheels" maxlength="120"></div>
+    </div>
+    <div class="field" data-f="headlights"><label for="f-headlights">Far tasarımı</label><input type="text" id="f-headlights" maxlength="160"></div>
+    <div class="field" data-f="distinctive"><label for="f-distinctive">Ayırt edici özellikler</label><textarea id="f-distinctive" maxlength="400"></textarea></div>
+    <p class="small muted">Bu işlem görsel eşleştirmedir. Aracın sana ait olduğunu doğrulamaz. Onaylamadığın sürece garajına hiçbir şey eklenmez. Onayladığında fotoğraflarından 3D model üretimi başlar.</p>
+    <div class="row"><button class="ghost" data-go="scan">Geri</button><button class="primary grow" id="btnConfirm">Onayla ve garaja ekle</button></div>
+  </section>
+
+  <!-- ARAÇ PROFİLİ -->
+  <section class="view" id="v-detail" hidden>
+    <div class="row"><button class="ghost" id="btnBack">← Geri</button><div class="grow"></div><button id="btnLike"></button></div>
+    <div class="stage tall" id="detStage"></div>
+    <p class="small muted" id="detModelNote"></p>
+    <div><div class="plate"><b>TR</b><span id="detPlate"></span></div></div>
+    <h1 id="detName"></h1>
+    <div class="row" id="detPills"></div>
+    <div class="stats" id="detStats"></div>
+    <p id="detDesc"></p>
+    <div class="small muted" id="detSpecs"></div>
+    <div><div class="eyebrow">Modifiye parçaları</div></div>
+    <div class="chips" id="detMods"></div>
+    <div class="photos" id="detPhotos"></div>
+    <div id="ownerBox" class="view">
+      <hr>
+      <div class="eyebrow">Düzenle</div>
+      <div class="field"><label for="e-nick">Özel isim</label><input type="text" id="e-nick" maxlength="24" placeholder="örn. Gece Kuşu"></div>
+      <div class="field"><label for="e-desc">Açıklama</label><textarea id="e-desc" maxlength="400"></textarea></div>
+      <div class="field"><label for="e-mod">Modifiye parçası ekle</label>
+        <div class="row"><input class="grow" type="text" id="e-mod" maxlength="60" placeholder="örn. 18 inç jant, coilover"><button id="btnAddMod">Ekle</button></div></div>
+      <div class="field"><label for="e-vis">Görünürlük</label>
+        <select id="e-vis"><option value="private">Özel · yalnızca ben</option><option value="public">Herkese açık</option></select></div>
+      <div class="row"><button class="primary grow" id="btnSave">Değişiklikleri kaydet</button><button id="btnFeature"></button></div>
+      <div class="row"><button class="danger ghost" id="btnDel">Aracı sil</button>
+        <span id="delConfirm" class="row" hidden><span class="small">Emin misin?</span><button class="danger" id="btnDelYes">Evet, sil</button><button id="btnDelNo">Vazgeç</button></span></div>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs" id="tabs" aria-label="Ana menü" hidden>
+  <button data-go="garage" id="tab-garage">GARAJIM</button>
+  <button class="add" data-go="scan" aria-label="Yeni araç ekle">+ ARAÇ</button>
+  <button data-go="explore" id="tab-explore">KEŞFET</button>
+</nav>
+<div id="toast" role="status" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

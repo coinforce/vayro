@@ -1,0 +1,8 @@
+{
+  "name": "vayro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VAYRO: AI araç tarama, fotoğraftan 3D model ve garaj",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node test/run.js" }
+}
