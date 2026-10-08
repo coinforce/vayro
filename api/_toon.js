@@ -18,9 +18,9 @@ const STYLE =
 // slots: o açı için en yararlı fotoğraflar (dosya adları tarama kutularından gelir)
 const VIEWS = {
   fq: { slots: ["frontq", "front", "left", "right"], text: "Viewing angle: front three-quarter view from slightly above, the front of the car pointing to the right." },
-  l: { slots: ["left", "right", "frontq"], text: "Viewing angle: exact side profile at wheel height, the front of the car pointing to the right." },
-  f: { slots: ["front", "frontq"], text: "Viewing angle: straight-on front view, perfectly symmetrical." },
-  b: { slots: ["rear", "rearq"], text: "Viewing angle: straight-on rear view, perfectly symmetrical." },
+  l: { slots: ["left", "right", "frontq"], text: "Viewing angle: exact side profile. The camera is at wheel height, perpendicular to the car, the front of the car pointing to the right. Only one side is visible; the front and rear faces are not." },
+  f: { slots: ["front", "frontq"], text: "Viewing angle: head-on front view. The camera is directly in front of the car at bumper height, looking straight at the nose. Both headlights and both front wheels are equally visible, the left and right halves mirror each other, and neither side of the car (no doors, no side windows, no rear wheels) is visible." },
+  b: { slots: ["rear", "rearq"], text: "Viewing angle: head-on rear view. The camera is directly behind the car at bumper height. Both tail lights and both rear wheels are equally visible, the left and right halves mirror each other, and neither side of the car is visible." },
   rq: { slots: ["rearq", "rear", "left", "right"], text: "Viewing angle: rear three-quarter view from slightly above, the rear of the car toward the viewer and pointing to the left." },
   t: { slots: ["frontq", "rearq", "left", "right"], text: "Viewing angle: top-down view from directly above, the front of the car pointing up." },
 };
@@ -35,18 +35,18 @@ function promptFor(car, key, hasStyleRef) {
   const who = "The car is a " + clean(car.brand, 40) + " " + clean(car.model, 60) + (car.year ? " (" + clean(car.year, 20) + ")" : "") +
     (car.color_name ? ". Body color: " + clean(car.color_name, 60) : "") + ".";
   const ref = hasStyleRef
-    ? " The first reference image is the finished illustration style to match exactly: same proportions, colors, shading and outline weight. The other reference images are photos of the real car; use them for the details visible from this angle."
+    ? " The first reference images are photos of the real car, taken from the required viewing angle: match that camera angle exactly and use them for the details. The LAST reference image is an existing illustration of the same car from a DIFFERENT angle: copy only its drawing style (proportions, colors, shading, outline weight). Do not copy its viewing angle or pose."
     : " The reference images are photos of the real car.";
   return STYLE + " " + who + " " + VIEWS[key].text + ref;
 }
 
 async function create(car, key, styleUrl) {
   const paths = (car.photo_paths || []).filter((p) => ownPath(car.owner_id, p));
-  let pick = VIEWS[key].slots.map((s) => paths.find((p) => slotOf(p) === s)).filter(Boolean).slice(0, styleUrl ? 3 : 4);
+  let pick = VIEWS[key].slots.map((s) => paths.find((p) => slotOf(p) === s)).filter(Boolean).slice(0, styleUrl ? 2 : 4);
   if (!pick.length) pick = paths.slice(0, 3);
   if (!pick.length) return { status: 400, error: "no_photos" };
   const refs = await Promise.all(pick.map((p) => signUrl("car-photos", p, 3600)));
-  if (styleUrl) refs.unshift(styleUrl);
+  if (styleUrl) refs.push(styleUrl); // stil örneği sona: açıyı fotoğraflar belirlesin
   const r = await fetch(API, {
     method: "POST",
     headers: { ...auth(), "Content-Type": "application/json" },

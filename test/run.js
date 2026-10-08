@@ -75,7 +75,7 @@ const fresh = () => { calls = []; recent = []; car = { id: C, owner_id: U, user_
   await call("model-status.js", { headers: auth, query: { carId: C } });
   man = JSON.parse(car.model_task_id); assert.equal(car.model_status, "processing"); assert.equal(imgN, 6, "ana çizimden sonra 5 açı daha başlamalı");
   assert(man.views.fq.endsWith("-fq.png")); assert.equal(car.model_thumb_path, man.views.fq);
-  assert(imgTasks.img2.reference_image_urls[0].includes("/storage/v1/object/public/car-models/"), "diğer açılar ana çizimi stil örneği olarak almalı");
+  assert(imgTasks.img2.reference_image_urls.slice(-1)[0].includes("/storage/v1/object/public/car-models/"), "diğer açılar ana çizimi stil örneği olarak almalı");
   await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(imgN, 6, "açılar ikinci kez başlatılmamalı");
   ["img2", "img3", "img4", "img5"].forEach((id) => (imgState[id] = { status: "SUCCEEDED", image_urls: ["https://assets.test/a.png"] })); imgState.img6 = { status: "FAILED", task_error: { message: "x" } };
   await call("model-status.js", { headers: auth, query: { carId: C } });
