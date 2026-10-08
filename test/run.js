@@ -66,7 +66,7 @@ const fresh = () => { calls = []; recent = []; car = { id: C, owner_id: U, user_
   r = await call("model-upload.js", { method: "POST", headers: {}, body: { carId: C } }); assert.equal(r.status, 401);
 
   // Çizgi film tarzı çizimler
-  process.env.MODEL_MODE = "toon"; fresh(); car.brand = "Fiat"; car.model = "Egea";
+  process.env.MODEL_MODE = "toon"; process.env.TOON_VIEWS = "fq,l,f,b,rq,t"; fresh(); car.brand = "Fiat"; car.model = "Egea";
   r = await call("model-start.js", { method: "POST", headers: auth, body: { carId: C } });
   assert.equal(r.status, 200); assert.equal(car.model_provider, "toon"); assert.equal(car.model_status, "queued");
   let man = JSON.parse(car.model_task_id); assert.equal(man.tasks.fq, "img1"); assert(!imgTasks.img1.reference_image_urls.some((u) => u.includes("/public/")));
