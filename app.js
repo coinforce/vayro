@@ -18,6 +18,7 @@ const ERR = {
   model3d_failed: "3D üretimi başlatılamadı. Biraz sonra yeniden dene.",
   daily_limit: "Bugünkü 3D üretim hakkın doldu. Yarın yeniden deneyebilirsin.",
   no_photos: "Bu araçta 3D üretim için fotoğraf yok.",
+  upload_failed: "Model dosyası yüklenemedi.",
 };
 let toastT;
 function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 4500); }
@@ -77,7 +78,7 @@ function cardEl(c) {
   let shot;
   if (c.model_thumb_path) { shot = document.createElement("img"); shot.className = "shot"; shot.alt = ""; shot.loading = "lazy"; shot.src = pubUrl(c.model_thumb_path); }
   else { shot = document.createElement("div"); shot.className = "shot ph";
-    shot.textContent = c.model_status === "queued" || c.model_status === "processing" ? "3D ÜRETİLİYOR %" + (c.model_progress || 0) : c.model_status === "failed" ? "3D ÜRETİLEMEDİ" : "3D MODEL YOK"; }
+    shot.textContent = c.model_status === "queued" || c.model_status === "processing" ? "3D ÜRETİLİYOR %" + (c.model_progress || 0) : c.model_status === "failed" ? "3D ÜRETİLEMEDİ" : c.model_status === "ready" ? "3D MODEL HAZIR" : "3D MODEL YOK"; }
   const m = document.createElement("div"); m.className = "meta";
   const n = document.createElement("div"); n.className = "name"; n.textContent = (str(c.brand, 40) + " " + str(c.model, 60)).trim() || "İsimsiz araç"; m.appendChild(n);
   if (c.nickname) { const p = document.createElement("div"); p.className = "plate"; p.innerHTML = "<b>TR</b><span></span>"; p.lastChild.textContent = str(c.nickname, 24).toUpperCase(); m.appendChild(p); }
@@ -246,7 +247,7 @@ function renderStage() {
     mv.setAttribute("shadow-intensity", "1"); mv.setAttribute("environment-image", "neutral"); mv.setAttribute("touch-action", "pan-y");
     mv.setAttribute("interaction-prompt", "none");
     st.appendChild(mv);
-    note.textContent = "Model fotoğraflarından yapay zekâyla üretildi; fotoğrafta görünmeyen kısımlar tahmindir. Sürükleyerek döndür, iki parmakla yakınlaştır. Cihazın destekliyorsa sağ alttaki AR düğmesiyle aracı zemine yerleştirebilirsin. AR'ı yalnızca araç park hâlindeyken kullan.";
+    note.textContent = (c.model_provider === "upload" ? "Bu model senin yüklediğin dosyadır. " : "Model fotoğraflarından yapay zekâyla üretildi; fotoğrafta görünmeyen kısımlar tahmindir. ") + "Sürükleyerek döndür, iki parmakla yakınlaştır. Cihazın destekliyorsa sağ alttaki AR düğmesiyle aracı zemine yerleştirebilirsin. AR'ı yalnızca araç park hâlindeyken kullan.";
     return;
   }
   const w = document.createElement("div"); w.className = "wait";
@@ -266,6 +267,23 @@ function renderStage() {
   }
   st.appendChild(w);
 }
+
+async function uploadGlb(file) {
+  const c = current;
+  if (!/\.glb$/i.test(file.name)) { toast("Yalnızca .glb uzantılı dosya yüklenebilir."); return; }
+  if (file.size > 45 * 1024 * 1024) { toast("Dosya 45 MB'tan büyük olamaz."); return; }
+  const btn = $("glbLabel"); btn.textContent = "Yükleniyor…";
+  try {
+    const { path, token } = await api("/api/model-upload", { method: "POST", body: JSON.stringify({ carId: c.id }) });
+    const { error } = await sb.storage.from("car-models").uploadToSignedUrl(path, token, file, { contentType: "model/gltf-binary" });
+    if (error) throw Object.assign(new Error("upload"), { code: "upload_failed", detail: error.message });
+    clearInterval(pollT); pollT = null;
+    await patch({ model_status: "ready", model_progress: 100, model_glb_path: path, model_usdz_path: null, model_thumb_path: null, model_provider: "upload", model_task_id: null, model_error: null }, "3D model eklendi.");
+    renderStage();
+  } catch (e) { toast((ERR[e.code] || ERR.upload_failed) + (e.detail ? " Ayrıntı: " + e.detail : "")); }
+  btn.textContent = "GLB dosyası yükle"; $("e-glb").value = "";
+}
+$("e-glb").addEventListener("change", (e) => { const f = e.target.files && e.target.files[0]; if (f) uploadGlb(f); });
 
 /* ---------- Araç profili ---------- */
 function openDetail(c) {

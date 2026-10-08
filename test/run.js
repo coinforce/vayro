@@ -11,6 +11,7 @@ global.fetch = async (url, opt = {}) => {
   if (url.includes("/object/sign/")) { assert(url.includes(U + "/")); return J({ signedURL: "/object/sign/x?token=t" }); }
   if (url.includes("/rest/v1/cars") && (opt.method || "GET") === "GET") return J(url.includes("model_requested_at") ? recent : url.includes("owner_id=eq." + U) ? [car] : []);
   if (url.includes("/rest/v1/cars") && opt.method === "PATCH") { Object.assign(car, JSON.parse(opt.body)); return J([car]); }
+  if (url.includes("/storage/v1/object/upload/sign/car-models/")) return J({ url: "/object/upload/sign/car-models/x?token=tok1" });
   if (url.includes("/storage/v1/object/car-models/")) return J({});
   if (url === "https://api.anthropic.com/v1/messages") { const b = JSON.parse(opt.body); assert.equal(b.messages[0].content.filter((c) => c.type === "image").length, 2);
     return J({ content: [{ type: "text", text: 'İşte: {"is_vehicle":true,"brand":{"value":"Fiat","confidence":0.9}}' }] }); }
@@ -55,6 +56,10 @@ const fresh = () => { calls = []; recent = []; car = { id: C, owner_id: U, user_
 
   fresh(); car.model_status = "processing"; car.model_task_id = "task1"; meshyTask = { status: "FAILED", task_error: { message: "bad input" } };
   await call("model-status.js", { headers: auth, query: { carId: C } }); assert.equal(car.model_status, "failed"); assert.equal(car.model_error, "bad input");
+
+  fresh(); r = await call("model-upload.js", { method: "POST", headers: auth, body: { carId: C } });
+  assert.equal(r.status, 200); assert.equal(r.body.token, "tok1"); assert(r.body.path.startsWith(U + "/" + C + "/upload-") && r.body.path.endsWith(".glb"));
+  r = await call("model-upload.js", { method: "POST", headers: {}, body: { carId: C } }); assert.equal(r.status, 401);
 
   console.log("Tüm sunucu testleri geçti.");
 })().catch((e) => { console.error(e); process.exit(1); });
