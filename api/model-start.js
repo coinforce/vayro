@@ -56,8 +56,10 @@ module.exports = async (req, res) => {
         ai_model: process.env.MESHY_MODEL || "latest",
         should_texture: true,
         enable_pbr: true,
+        geometry_resolution: process.env.MESHY_GEOMETRY || "2k", // daha ayrıntılı gövde (+5 kredi)
+        texture_resolution: process.env.MESHY_TEXTURE || "4k",
         should_remesh: true,
-        target_polycount: 60000, // telefonlarda akıcı kalması için
+        target_polycount: parseInt(process.env.MESHY_POLYCOUNT || "200000", 10), // ayrıntı ile telefon akıcılığı arasında denge
         target_formats: ["glb", "usdz"], // usdz: iPhone'da AR
       }),
     });

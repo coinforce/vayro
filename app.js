@@ -283,6 +283,7 @@ async function uploadGlb(file) {
   } catch (e) { toast((ERR[e.code] || ERR.upload_failed) + (e.detail ? " Ayrıntı: " + e.detail : "")); }
   btn.textContent = "GLB dosyası yükle"; $("e-glb").value = "";
 }
+$("btnRegen").addEventListener("click", async () => { const b = $("btnRegen"); b.disabled = true; stageKey = ""; await startModel(current); b.disabled = false; scrollTo(0, 0); });
 $("e-glb").addEventListener("change", (e) => { const f = e.target.files && e.target.files[0]; if (f) uploadGlb(f); });
 
 /* ---------- Araç profili ---------- */
@@ -315,7 +316,7 @@ function fillDetail(resetForm) {
     mods.appendChild(ch); });
   const lb = $("btnLike"); lb.hidden = c.visibility !== "public"; lb.textContent = liked.has(c.id) ? "♥ Beğendin" : "♡ Beğen";
   $("ownerBox").hidden = !own;
-  if (own) { $("btnFeature").textContent = c.featured ? "Öne çıkarıldı" : "Öne çıkar"; $("btnFeature").disabled = !!c.featured;
+  if (own) { $("btnRegen").hidden = !cfg.model3d || pending(c); $("btnFeature").textContent = c.featured ? "Öne çıkarıldı" : "Öne çıkar"; $("btnFeature").disabled = !!c.featured;
     if (resetForm) { $("e-nick").value = c.nickname || ""; $("e-desc").value = c.description || ""; $("e-vis").value = c.visibility; $("delConfirm").hidden = true; } }
 }
 async function patch(p, ok) {
