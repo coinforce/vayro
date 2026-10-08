@@ -231,6 +231,12 @@ function watch() {
     try { const { car } = await api("/api/model-status?carId=" + id); mergeCar(car); renderStage(); if (!pending(current)) { clearInterval(pollT); fillDetail(false); } } catch (e) { /* bir sonraki turda yeniden denenir */ }
   }, 6000);
 }
+// Sabit bakış açıları: yön, yükseklik ve uzaklık (model-viewer camera-orbit)
+const ANGLES = [
+  { k: "fq", t: "Ön çapraz", o: "-40deg 76deg 80%" }, { k: "f", t: "Ön", o: "0deg 82deg 80%" },
+  { k: "l", t: "Sol yan", o: "-90deg 84deg 88%" }, { k: "r", t: "Sağ yan", o: "90deg 84deg 88%" },
+  { k: "rq", t: "Arka çapraz", o: "140deg 76deg 80%" }, { k: "b", t: "Arka", o: "180deg 82deg 80%" },
+  { k: "t", t: "Üst", o: "0deg 0deg 95%" }];
 function renderStage() {
   const c = current, st = $("detStage"), own = isMine(c);
   const key = c.id + c.model_status + (pending(c) ? c.model_progress : "") + (c.model_glb_path || "");
@@ -242,15 +248,23 @@ function renderStage() {
     if (c.model_usdz_path) mv.setAttribute("ios-src", pubUrl(c.model_usdz_path));
     if (c.model_thumb_path) mv.setAttribute("poster", pubUrl(c.model_thumb_path));
     mv.setAttribute("alt", (c.brand + " " + c.model).trim() + " 3D modeli");
-    ["camera-controls", "auto-rotate", "ar"].forEach((a) => mv.setAttribute(a, ""));
+    mv.setAttribute("ar", ""); // serbest döndürme yok: açılar aşağıdaki sabit listeden seçilir
     mv.setAttribute("ar-modes", "webxr scene-viewer quick-look"); mv.setAttribute("ar-scale", "auto");
-    mv.setAttribute("shadow-intensity", "1.5"); mv.setAttribute("shadow-softness", "0.9"); mv.setAttribute("environment-image", "neutral"); mv.setAttribute("exposure", "1.1"); mv.setAttribute("touch-action", "pan-y");
+    mv.setAttribute("shadow-intensity", "1.5"); mv.setAttribute("shadow-softness", "0.9"); mv.setAttribute("environment-image", "neutral"); mv.setAttribute("exposure", "1.1"); 
     // Aracı ön çaprazdan, göz hizasına yakın ve kutuyu dolduracak şekilde göster.
-    mv.setAttribute("camera-orbit", "-40deg 76deg 78%"); mv.setAttribute("min-camera-orbit", "auto 20deg 35%"); mv.setAttribute("max-camera-orbit", "auto 88deg 160%");
+    mv.setAttribute("camera-orbit", ANGLES[0].o); mv.setAttribute("min-camera-orbit", "auto 0deg 30%"); mv.setAttribute("max-camera-orbit", "auto 90deg 200%");
     mv.setAttribute("field-of-view", "26deg"); mv.setAttribute("min-field-of-view", "10deg"); mv.setAttribute("interpolation-decay", "120");
     mv.setAttribute("interaction-prompt", "none");
     st.appendChild(mv);
-    note.textContent = (c.model_provider === "upload" ? "Bu model senin yüklediğin dosyadır. " : "Model fotoğraflarından yapay zekâyla üretildi; fotoğrafta görünmeyen kısımlar tahmindir. ") + "Sürükleyerek döndür, iki parmakla yakınlaştır. Cihazın destekliyorsa sağ alttaki AR düğmesiyle aracı zemine yerleştirebilirsin. AR'ı yalnızca araç park hâlindeyken kullan.";
+    const pick = document.createElement("div"); pick.className = "angles";
+    const tog = document.createElement("button"); tog.type = "button"; tog.className = "angle-toggle"; tog.setAttribute("aria-expanded", "false");
+    const list = document.createElement("div"); list.className = "angle-list"; list.hidden = true;
+    const setAngle = (a) => { mv.setAttribute("camera-orbit", a.o); tog.textContent = "Açı: " + a.t + " ▾"; list.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === a.k))); };
+    ANGLES.forEach((a) => { const b = document.createElement("button"); b.type = "button"; b.dataset.k = a.k; b.textContent = a.t;
+      b.addEventListener("click", () => { setAngle(a); list.hidden = true; tog.setAttribute("aria-expanded", "false"); }); list.appendChild(b); });
+    tog.addEventListener("click", () => { list.hidden = !list.hidden; tog.setAttribute("aria-expanded", String(!list.hidden)); });
+    setAngle(ANGLES[0]); pick.append(tog, list); st.appendChild(pick);
+    note.textContent = (c.model_provider === "upload" ? "Bu model senin yüklediğin dosyadır. " : "Model fotoğraflarından yapay zekâyla üretildi; fotoğrafta görünmeyen kısımlar tahmindir. ") + "Açıyı değiştirmek için sol üstteki kutuya dokun. Cihazın destekliyorsa sağ alttaki AR düğmesiyle aracı zemine yerleştirebilirsin. AR'ı yalnızca araç park hâlindeyken kullan.";
     return;
   }
   const w = document.createElement("div"); w.className = "wait";
