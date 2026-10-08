@@ -127,3 +127,4 @@ input[type=email],input[type=password]{font:inherit;width:100%;padding:10px 12px
 .angle-list{display:flex;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;min-width:150px}
 .angle-list button{border:none;background:none;text-align:left;padding:9px 12px;font-size:14px;font-weight:500;border-radius:7px}
 .angle-list button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);font-weight:600}
+.angle-list .angle-fix{border-top:1px solid var(--line);border-radius:0 0 7px 7px;color:var(--muted);font-size:13px;margin-top:2px}
