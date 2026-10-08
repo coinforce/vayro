@@ -333,16 +333,26 @@ $("btnDelYes").addEventListener("click", async () => {
 });
 
 /* ---------- Giriş ---------- */
+function authWhy(e) {
+  const m = String((e && e.message) || "");
+  if (/registered|already/i.test(m)) return "bu e-posta zaten kayıtlı.";
+  if (/fetch|network|load failed/i.test(m)) return "Supabase'e ulaşılamadı. Vercel'deki SUPABASE_URL değeri yanlış olabilir.";
+  if (/api key|jwt|apikey/i.test(m)) return "Supabase anahtarı geçersiz. Vercel'deki SUPABASE_ANON_KEY değerini kontrol et.";
+  if (/rate|too many|seconds/i.test(m)) return "çok fazla deneme yapıldı. Birkaç dakika sonra yeniden dene.";
+  if (/password/i.test(m)) return "şifre kabul edilmedi. Daha uzun bir şifre dene.";
+  if (/signup|disabled/i.test(m)) return "Supabase'de yeni hesap açma kapalı.";
+  return m || "bilinmeyen hata.";
+}
 function authMsg(m) { const n = $("authMsg"); n.textContent = m; n.hidden = !m; }
 $("authForm").addEventListener("submit", async (e) => {
   e.preventDefault(); authMsg("");
   const { error } = await sb.auth.signInWithPassword({ email: $("a-email").value.trim(), password: $("a-pass").value });
-  if (error) authMsg(/confirm/i.test(error.message) ? "E-postana gelen onay bağlantısına tıkla, sonra giriş yap." : "Giriş yapılamadı. E-posta ya da şifre hatalı.");
+  if (error) authMsg(/confirm/i.test(error.message) ? "E-postana gelen onay bağlantısına tıkla, sonra giriş yap." : /invalid login/i.test(error.message) ? "Giriş yapılamadı. E-posta ya da şifre hatalı." : "Giriş yapılamadı: " + authWhy(error));
 });
 $("btnUp").addEventListener("click", async () => {
   authMsg(""); if (!$("authForm").reportValidity()) return;
   const { data, error } = await sb.auth.signUp({ email: $("a-email").value.trim(), password: $("a-pass").value });
-  if (error) authMsg("Hesap oluşturulamadı: " + (/registered/i.test(error.message) ? "bu e-posta zaten kayıtlı." : "bilgileri kontrol et."));
+  if (error) authMsg("Hesap oluşturulamadı: " + authWhy(error));
   else if (!data.session) authMsg("Hesabın oluşturuldu. E-postana gelen onay bağlantısına tıkla, sonra giriş yap.");
 });
 $("btnOut").addEventListener("click", () => sb.auth.signOut());
