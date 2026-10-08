@@ -244,7 +244,10 @@ function renderStage() {
     mv.setAttribute("alt", (c.brand + " " + c.model).trim() + " 3D modeli");
     ["camera-controls", "auto-rotate", "ar"].forEach((a) => mv.setAttribute(a, ""));
     mv.setAttribute("ar-modes", "webxr scene-viewer quick-look"); mv.setAttribute("ar-scale", "auto");
-    mv.setAttribute("shadow-intensity", "1"); mv.setAttribute("environment-image", "neutral"); mv.setAttribute("touch-action", "pan-y");
+    mv.setAttribute("shadow-intensity", "1.5"); mv.setAttribute("shadow-softness", "0.9"); mv.setAttribute("environment-image", "neutral"); mv.setAttribute("exposure", "1.1"); mv.setAttribute("touch-action", "pan-y");
+    // Aracı ön çaprazdan, göz hizasına yakın ve kutuyu dolduracak şekilde göster.
+    mv.setAttribute("camera-orbit", "-40deg 76deg 78%"); mv.setAttribute("min-camera-orbit", "auto 20deg 35%"); mv.setAttribute("max-camera-orbit", "auto 88deg 160%");
+    mv.setAttribute("field-of-view", "26deg"); mv.setAttribute("min-field-of-view", "10deg"); mv.setAttribute("interpolation-decay", "120");
     mv.setAttribute("interaction-prompt", "none");
     st.appendChild(mv);
     note.textContent = (c.model_provider === "upload" ? "Bu model senin yüklediğin dosyadır. " : "Model fotoğraflarından yapay zekâyla üretildi; fotoğrafta görünmeyen kısımlar tahmindir. ") + "Sürükleyerek döndür, iki parmakla yakınlaştır. Cihazın destekliyorsa sağ alttaki AR düğmesiyle aracı zemine yerleştirebilirsin. AR'ı yalnızca araç park hâlindeyken kullan.";
