@@ -26,7 +26,7 @@ const VIEWS = {
   t: { slots: ["frontq", "rearq", "left", "right"], text: "Viewing angle: top-down view from directly above, the front of the car pointing up." },
 };
 function viewList() {
-  const v = (process.env.TOON_VIEWS || "fq,f").split(",").map((s) => s.trim()).filter((k) => VIEWS[k]);
+  const v = (process.env.TOON_VIEWS || "fq").split(",").map((s) => s.trim()).filter((k) => VIEWS[k]);
   return ["fq"].concat(v.filter((k) => k !== "fq")).filter((k, i, a) => a.indexOf(k) === i);
 }
 const slotOf = (p) => (p.split("/").pop() || "").replace(/\.[a-z]+$/i, "");

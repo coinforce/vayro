@@ -244,6 +244,7 @@ const yawOf = (c) => Number(c.field_source && c.field_source._yaw) || 0;
 const orbit = (a, yaw) => (a.th + yaw) + "deg " + a.ph + "deg " + a.r + "%";
 // Çizgi film tarzı çizimler: hangi açının hangi dosyada olduğu model_task_id içindeki JSON'da durur.
 const TOON = [["fq", "Ön çapraz"], ["l", "Yan"], ["f", "Ön"], ["b", "Arka"], ["rq", "Arka çapraz"], ["t", "Üst"]];
+const SHOW_ALL_VIEWS = false; // true yapılırsa üretilmiş bütün açılar seçilebilir
 function toonViews(c) {
   if (c.model_provider !== "toon" || !c.model_task_id) return null;
   try { const v = JSON.parse(c.model_task_id).views || {}; const out = TOON.filter(([k]) => typeof v[k] === "string").map(([k, t]) => ({ k, t, src: pubUrl(v[k]) })); return out.length ? out : null; } catch (e) { return null; }
@@ -266,15 +267,12 @@ function renderStage() {
   const note = $("detModelNote"); note.textContent = "";
   const toon = c.model_status === "ready" ? toonViews(c) : null;
   if (toon) {
+    // Yalnızca ön çapraz çizim gösterilir; başka açı üretilmişse (TOON_VIEWS ile) açı kutusu da çıkar.
     const img = document.createElement("img"); img.className = "toon"; img.alt = (c.brand + " " + c.model).trim() + " çizimi"; st.appendChild(img);
-    toon.forEach((v) => { const pre = new Image(); pre.src = v.src; }); // açılar arası geçiş beklemesiz olsun
-    let curV = toon[0], redo = null;
-    if (own && cfg.model3d) { // yalnızca seçili açıyı yeniden çizer; ana çizim (ön çapraz) korunur
-      redo = document.createElement("button"); redo.type = "button"; redo.className = "angle-fix";
-      redo.addEventListener("click", () => { redo.disabled = true; stageKey = ""; startModel(c, curV.k); }); }
-    anglePicker(st, toon, (v) => { curV = v; img.classList.remove("in"); img.src = v.src; requestAnimationFrame(() => img.classList.add("in"));
-      if (redo) { redo.hidden = v.k === "fq"; redo.textContent = "↻ \"" + v.t + "\" açısını yeniden çiz (9 kredi)"; } }, redo);
-    note.textContent = "Çizimler aracının fotoğraflarından yapay zekâyla üretildi; ayrıntılar gerçeğinden farklı olabilir. Açıyı değiştirmek için sol üstteki kutuya dokun.";
+    const show = (v) => { img.classList.remove("in"); img.src = v.src; requestAnimationFrame(() => img.classList.add("in")); };
+    const views = SHOW_ALL_VIEWS ? toon : toon.filter((v) => v.k === "fq");
+    if (views.length > 1) { views.forEach((v) => { const pre = new Image(); pre.src = v.src; }); anglePicker(st, views, show); } else show(views[0] || toon[0]);
+    note.textContent = "Çizim aracının fotoğraflarından yapay zekâyla üretildi; ayrıntılar gerçeğinden farklı olabilir.";
     return;
   }
   if (c.model_status === "ready" && c.model_glb_path) {
@@ -315,7 +313,7 @@ function renderStage() {
     if (own && cfg.model3d) { const b = document.createElement("button"); b.className = "primary"; b.textContent = "Yeniden dene"; b.addEventListener("click", () => { b.disabled = true; startModel(c); }); w.appendChild(b); }
   } else {
     t.textContent = "Bu aracın çizimi yok"; w.appendChild(t);
-    if (own && cfg.model3d) { const b = document.createElement("button"); b.className = "primary"; b.textContent = "Çizimleri oluştur"; b.addEventListener("click", () => { b.disabled = true; startModel(c); }); w.appendChild(b); }
+    if (own && cfg.model3d) { const b = document.createElement("button"); b.className = "primary"; b.textContent = "Çizimi oluştur"; b.addEventListener("click", () => { b.disabled = true; startModel(c); }); w.appendChild(b); }
     else if (own) { const s = document.createElement("div"); s.className = "small muted"; s.textContent = ERR.model3d_not_configured; w.appendChild(s); }
   }
   st.appendChild(w);
