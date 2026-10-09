@@ -76,7 +76,7 @@ document.addEventListener("click", (e) => { const b = e.target.closest("[data-go
 function cardEl(c) {
   const b = document.createElement("button"); b.className = "card";
   let shot;
-  if (c.model_thumb_path) { shot = document.createElement("img"); shot.className = "shot"; shot.alt = ""; shot.loading = "lazy"; shot.src = pubUrl(c.model_thumb_path); }
+  if (c.model_thumb_path) { shot = document.createElement("img"); shot.className = "shot bg-" + bgOf(c); shot.alt = ""; shot.loading = "lazy"; shot.src = pubUrl(c.model_thumb_path); }
   else { shot = document.createElement("div"); shot.className = "shot ph";
     shot.textContent = c.model_status === "queued" || c.model_status === "processing" ? "ÇİZİM HAZIRLANIYOR %" + (c.model_progress || 0) : c.model_status === "failed" ? "ÇİZİM ÜRETİLEMEDİ" : c.model_status === "ready" ? "MODEL HAZIR" : "ÇİZİM YOK"; }
   const m = document.createElement("div"); m.className = "meta";
@@ -244,6 +244,25 @@ const yawOf = (c) => Number(c.field_source && c.field_source._yaw) || 0;
 const orbit = (a, yaw) => (a.th + yaw) + "deg " + a.ph + "deg " + a.r + "%";
 // Çizgi film tarzı çizimler: hangi açının hangi dosyada olduğu model_task_id içindeki JSON'da durur.
 const TOON = [["fq", "Ön çapraz"], ["l", "Yan"], ["f", "Ön"], ["b", "Arka"], ["rq", "Arka çapraz"], ["t", "Üst"]];
+const BGS = [["studio", "Stüdyo"], ["road", "Yol"], ["sunset", "Gün batımı"], ["night", "Gece yolu"], ["garage", "Garaj"]];
+const bgOf = (c) => { const b = c.field_source && c.field_source._bg; return BGS.some((x) => x[0] === b) ? b : "studio"; };
+// Arka plan seçici: yalnızca aracın sahibine görünür, seçim araca kaydedilir ve herkese o sahne gösterilir.
+function bgPicker(st, c) {
+  const box = document.createElement("div"); box.className = "angles right";
+  const tog = document.createElement("button"); tog.type = "button"; tog.className = "angle-toggle"; tog.textContent = "Arka plan ▾"; tog.setAttribute("aria-expanded", "false");
+  const list = document.createElement("div"); list.className = "angle-list"; list.hidden = true;
+  const mark = () => list.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === bgOf(current))));
+  BGS.forEach(([k, t]) => { const b = document.createElement("button"); b.type = "button"; b.dataset.k = k; b.textContent = t;
+    b.addEventListener("click", async () => {
+      list.hidden = true; tog.setAttribute("aria-expanded", "false");
+      const fs = Object.assign({}, current.field_source || {}, { _bg: k });
+      st.className = "stage tall bg-" + k; mergeCar({ id: c.id, field_source: fs }); mark();
+      const { error } = await sb.from("cars").update({ field_source: fs }).eq("id", c.id);
+      if (error) toast("Arka plan kaydedilemedi.");
+    }); list.appendChild(b); });
+  tog.addEventListener("click", () => { list.hidden = !list.hidden; tog.setAttribute("aria-expanded", String(!list.hidden)); });
+  mark(); box.append(tog, list); st.appendChild(box);
+}
 const SHOW_ALL_VIEWS = false; // true yapılırsa üretilmiş bütün açılar seçilebilir
 function toonViews(c) {
   if (c.model_provider !== "toon" || !c.model_task_id) return null;
@@ -265,6 +284,7 @@ function renderStage() {
   const key = c.id + c.model_status + (pending(c) ? c.model_progress : "") + (c.model_glb_path || "") + (c.model_thumb_path || "") + (c.model_status === "ready" ? String(c.model_task_id || "").length : "");
   if (key === stageKey) return; stageKey = key; st.textContent = "";
   const note = $("detModelNote"); note.textContent = "";
+  st.className = "stage tall bg-" + bgOf(c);
   const toon = c.model_status === "ready" ? toonViews(c) : null;
   if (toon) {
     // Yalnızca ön çapraz çizim gösterilir; başka açı üretilmişse (TOON_VIEWS ile) açı kutusu da çıkar.
@@ -272,7 +292,8 @@ function renderStage() {
     const show = (v) => { img.classList.remove("in"); img.src = v.src; requestAnimationFrame(() => img.classList.add("in")); };
     const views = SHOW_ALL_VIEWS ? toon : toon.filter((v) => v.k === "fq");
     if (views.length > 1) { views.forEach((v) => { const pre = new Image(); pre.src = v.src; }); anglePicker(st, views, show); } else show(views[0] || toon[0]);
-    note.textContent = "Çizim aracının fotoğraflarından yapay zekâyla üretildi; ayrıntılar gerçeğinden farklı olabilir.";
+    if (own) bgPicker(st, c);
+    note.textContent = "Çizim aracının fotoğraflarından yapay zekâyla üretildi; ayrıntılar gerçeğinden farklı olabilir." + (own ? " Sahneyi sağ üstteki Arka plan kutusundan değiştirebilirsin." : "");
     return;
   }
   if (c.model_status === "ready" && c.model_glb_path) {
